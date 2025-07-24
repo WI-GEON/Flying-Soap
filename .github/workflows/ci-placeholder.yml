@@ -23,10 +23,10 @@ jobs:
       - name: Activate Unity License
         uses: game-ci/unity-activate@v2.0.0
         with:
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}  # Pro 라이선스가 없다면 생략
-          unityVersion: auto
+          unityVersion: 2022.3.26f1  # ← 프로젝트에 맞는 Unity 버전을 정확히 입력
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+
 
       # 4) PlayMode 테스트 실행
       - name: PlayMode Tests
