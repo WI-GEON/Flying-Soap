@@ -1,3 +1,9 @@
+# Ensure text files use LF on server, CRLF on Windows
+*.cs text eol=crlf
+*.shader text eol=lf
+*.txt text eol=lf
+
+# Binary assets via LFS
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.fbx filter=lfs diff=lfs merge=lfs -text
