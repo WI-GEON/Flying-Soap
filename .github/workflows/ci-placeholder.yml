@@ -7,30 +7,47 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # 전역으로 선언해도 무방합니다
+  UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
+  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
 jobs:
-  # 1) PlayMode 테스트 (Docker + Windows‑Mono 이미지)
+  # ───────────────────────────────────────────────
+  # 1) PlayMode Tests on Ubuntu + Windows‑Mono image
+  # ───────────────────────────────────────────────
   test:
     name: PlayMode Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Cache Library folder
+      - name: Cache Unity Library
         uses: actions/cache@v3
         with:
           path: Library
           key: Library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
 
+      # ────── 라이선스 활성화 ──────
+      - name: Activate Unity License
+        id: activate
+        uses: game-ci/unity-activate@v2.0.0
+        with:
+          unityVersion: 2022.3.26f1
+        env:
+          UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
+      # ─────── PlayMode 테스트 ───────
       - name: Run PlayMode Tests
         uses: game-ci/unity-test-runner@v4
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         with:
-          projectPath:  .
-          githubToken:  ${{ secrets.GITHUB_TOKEN }}
           unityVersion: 2022.3.26f1
           testMode:     playmode
-          # linux‑il2cpp 이미지가 없으니 windows‑mono 이미지로 우회
+          githubToken:  ${{ secrets.GITHUB_TOKEN }}
+          projectPath:  .
+          # linux-il2cpp 이미지는 아직 없어서 우회
           customImage:  unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1
 
       - name: Upload Test Results
@@ -39,28 +56,32 @@ jobs:
           name: PlayMode-TestResults
           path: artifacts
 
-  # 2) Windows Standalone 빌드 (같은 이미지 사용)
+  # ───────────────────────────────────────────────
+  # 2) Build Windows Standalone on Windows VM
+  # ───────────────────────────────────────────────
   build:
     name: Build Windows
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: test
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Cache Library folder
+      - name: Cache Unity Library
         uses: actions/cache@v3
         with:
           path: Library
           key: Library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
 
+      # ─────── Windows 빌드 ───────
       - name: Build Windows Standalone
         uses: game-ci/unity-builder@v4
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         with:
           unityVersion:    2022.3.26f1
           targetPlatform:  StandaloneWindows64
-          customImage:     unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1
+        env:
+          UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
