@@ -1,4 +1,5 @@
-name: Unity CI (2022.3.26f1)
+# .github/workflows/windows-ci.yml
+name: Windows CI (Unity 2022.3.26f1)
 
 on:
   push:
@@ -7,10 +8,13 @@ on:
     branches: [ main ]
 
 jobs:
-  # 1) Linux Mono 환경에서 PlayMode 테스트
-  test-linux:
-    name: PlayMode Tests (Linux Mono)
-    runs-on: ubuntu-latest
+  windows-ci:
+    name: Windows CI
+    runs-on: windows-latest
+    env:
+      UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,42 +24,33 @@ jobs:
         with:
           path: Library
           key: ${{ runner.os }}-unity-library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
-
-      - name: Activate Unity License
-        uses: game-ci/unity-activate@v2.0.0
-        with:
-          unityVersion: 2022.3.26f1
-        env:
-          UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
       - name: Run PlayMode Tests
-        uses: game-ci/unity-test-runner@v4
+        shell: pwsh
+        run: |
+          # Unity Hub가 설치된 기본 경로에서 2022.3.26f1 에디터 실행
+          $unityPath = "C:\Program Files\Unity\Hub\Editor\2022.3.26f1\Editor\Unity.exe"
+          & $unityPath -batchmode -projectPath $Env:GITHUB_WORKSPACE `
+                        -runTests -testPlatform PlayMode `
+                        -testResults "$Env:GITHUB_WORKSPACE\TestResults.xml" `
+                        -logFile -
+          # 테스트 결과 업로드용
+      - name: Upload PlayMode Test Results
+        uses: actions/upload-artifact@v3
         with:
-          testMode: playmode
-          unityVersion: 2022.3.26f1
+          name: PlayMode-TestResults
+          path: TestResults.xml
 
-  # 2) Windows VM에서 Standalone Windows 빌드
-  build-windows:
-    name: Build Windows (Standalone)
-    runs-on: windows-latest
-    needs: test-linux
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Cache Library folder
-        uses: actions/cache@v3
-        with:
-          path: Library
-          key: ${{ runner.os }}-unity-library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
-
-      - name: Build Windows
+      - name: Build Windows Standalone
         uses: game-ci/unity-builder@v4
-        with:
-          unityVersion: 2022.3.26f1
-          targetPlatform: StandaloneWindows64
         env:
           UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion:       2022.3.26f1
+          targetPlatform:     StandaloneWindows64
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows-Build
+          path: build/Windows
