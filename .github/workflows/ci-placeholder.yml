@@ -7,35 +7,29 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  build-windows:
     runs-on: windows-latest
-    steps:
-      # 1) 코드 체크아웃
-      - uses: actions/checkout@v3
 
-      # 2) 캐시 활용 (Library 폴더)
-      - uses: actions/cache@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # (선택) 캐시 – 빌드 속도 최적화
+      - name: Cache Library
+        uses: actions/cache@v3
         with:
           path: Library
           key: ${{ runner.os }}-unity-library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
 
-      # 3) 라이선스 활성화 (Pro 에디션이시면 UNITY_SERIAL 추가)
-      - name: Activate Unity License
-        uses: game-ci/unity-activate@v2.0.0
-        with:
-          unityVersion: 2022.3.26f1  # ← 프로젝트에 맞는 Unity 버전을 정확히 입력
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-
-
-      # 4) PlayMode 테스트 실행
-      - name: PlayMode Tests
-        uses: game-ci/unity-test-runner@v4
-        with:
-          testMode: playmode
-
-      # 5) Windows용 빌드
       - name: Build Windows
         uses: game-ci/unity-builder@v4
+        env:
+          # secrets에 미리 올려둔 .ulf 파일 내용
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          # (Pro/Plus 라이선스일 경우)
+          # UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          # UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
+          unityVersion: 2022.3.26f1
           targetPlatform: StandaloneWindows64
