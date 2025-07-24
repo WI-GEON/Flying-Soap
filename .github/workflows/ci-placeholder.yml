@@ -1,5 +1,4 @@
-# .github/workflows/unity-ci.yml
-name: Unity CI (2022.3.26f1)
+name: Unity Docker CI (2022.3.26f1)
 
 on:
   push:
@@ -7,81 +6,74 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  # 전역으로 선언해도 무방합니다
-  UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
-  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-
 jobs:
-  # ───────────────────────────────────────────────
-  # 1) PlayMode Tests on Ubuntu + Windows‑Mono image
-  # ───────────────────────────────────────────────
+  # ─────────────────────────────────────────────
+  # 1) PlayMode Tests in Docker (windows-mono)
+  # ─────────────────────────────────────────────
   test:
     name: PlayMode Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache Unity Library
-        uses: actions/cache@v3
-        with:
-          path: Library
-          key: Library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
+      - name: Write Unity license file
+        run: |
+          echo "${{ secrets.UNITY_LICENSE }}" > project.ulf
 
-      # ────── 라이선스 활성화 ──────
-      - name: Activate Unity License
-        id: activate
-        uses: game-ci/unity-activate@v2.0.0
-        with:
-          unityVersion: 2022.3.26f1
-        env:
-          UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      - name: Pull Unity Docker image
+        run: docker pull unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1
 
-      # ─────── PlayMode 테스트 ───────
       - name: Run PlayMode Tests
-        uses: game-ci/unity-test-runner@v4
-        with:
-          unityVersion: 2022.3.26f1
-          testMode:     playmode
-          githubToken:  ${{ secrets.GITHUB_TOKEN }}
-          projectPath:  .
-          # linux-il2cpp 이미지는 아직 없어서 우회
-          customImage:  unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/project \
+            -v ${{ github.workspace }}/project.ulf:/root/.local/share/unity3d/Unity_lic.ulf \
+            unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1 \
+            /opt/unity/Editor/Unity \
+              -batchmode \
+              -projectPath /project \
+              -runTests \
+              -testPlatform PlayMode \
+              -testResults /project/TestResults.xml \
+              -quit \
+          && echo "Tests passed"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         with:
           name: PlayMode-TestResults
-          path: artifacts
+          path: TestResults.xml
 
-  # ───────────────────────────────────────────────
-  # 2) Build Windows Standalone on Windows VM
-  # ───────────────────────────────────────────────
+  # ─────────────────────────────────────────────
+  # 2) Build Standalone Windows in Docker (same image)
+  # ─────────────────────────────────────────────
   build:
     name: Build Windows
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache Unity Library
-        uses: actions/cache@v3
-        with:
-          path: Library
-          key: Library-${{ hashFiles('**/ProjectSettings/ProjectVersion.txt') }}
+      - name: Write Unity license file
+        run: |
+          echo "${{ secrets.UNITY_LICENSE }}" > project.ulf
 
-      # ─────── Windows 빌드 ───────
+      - name: Pull Unity Docker image
+        run: docker pull unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1
+
       - name: Build Windows Standalone
-        uses: game-ci/unity-builder@v4
-        with:
-          unityVersion:    2022.3.26f1
-          targetPlatform:  StandaloneWindows64
-        env:
-          UNITY_EMAIL:    ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/project \
+            -v ${{ github.workspace }}/project.ulf:/root/.local/share/unity3d/Unity_lic.ulf \
+            unityci/editor:ubuntu-2022.3.26f1-windows-mono-3.0.1 \
+            /opt/unity/Editor/Unity \
+              -batchmode \
+              -projectPath /project \
+              -buildWindows64Player /project/build/Windows/Game.exe \
+              -quit
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
