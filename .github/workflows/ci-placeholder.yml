@@ -36,7 +36,7 @@ jobs:
                         -logFile -
           # 테스트 결과 업로드용
       - name: Upload PlayMode Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PlayMode-TestResults
           path: TestResults.xml
@@ -49,8 +49,9 @@ jobs:
         with:
           unityVersion:       2022.3.26f1
           targetPlatform:     StandaloneWindows64
+          
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Windows-Build
           path: build/Windows
